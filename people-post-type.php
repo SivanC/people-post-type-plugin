@@ -3,7 +3,7 @@
 /**
  * Plugin Name: People Post Type
  * Description: Adds the People post type and graph database connection.
- * Version: 0.7.1
+ * Version: 0.10.1
  * Author: Sivan Cooperman 
  */
 
@@ -11,21 +11,27 @@
     static class methods.
 */
 
-// Metabox Form
-include('person-form.php');
+// Metabox Form and Settings Page
+include('forms/person-form.php');
+include('forms/settings.php');
 
 // Classes that handle ingress and egress of data from the form
-include('DataIO.php');
-include('ParentIO.php');
-include('ChildIO.php');
+include('classes/DataIO.php');
+include('classes/ChildIO.php');
+include('classes/ParentIO.php');
+include('classes/PartnerIO.php');
+
+// Child IO filters
+add_filter( 'rwmb_person_child_group_value', [ 'ChildIO', 'write_child_data' ] );
+add_filter( 'rwmb_person_child_group_field_meta', [ 'ChildIO', 'read_child_data' ] );
 
 // Parent IO filters
 add_filter( 'rwmb_person_parent_group_value', [ 'ParentIO', 'write_parent_data' ] );
 add_filter( 'rwmb_person_parent_group_field_meta', [ 'ParentIO', 'read_parent_data' ] );
 
-// Child IO filters
-add_filter( 'rwmb_person_child_group_value', [ 'ChildIO', 'write_child_data' ] );
-add_filter( 'rwmb_person_child_group_field_meta', [ 'ChildIO', 'read_child_data' ] );
+// Partner IO filters
+add_filter( 'rwmb_person_partner_group_value', [ 'PartnerIO', 'write_partner_data' ] );
+add_filter( 'rwmb_person_partner_group_field_meta', [ 'PartnerIO', 'read_partner_data' ] );
 
 // On delete
 add_action( 'before_delete_post', [ 'DataIO', 'delete_data' ], 10, 1 );
