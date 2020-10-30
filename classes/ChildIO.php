@@ -6,10 +6,6 @@
  */
 class ChildIO {
 
-    private $db_post_uri = '';
-    private $db_get_uri = '';
-    private $base_uri = '';
-
     /**
      * This function uses the rwmb_person_child_group_value filter to intercept
      * child data sent by the People post and write it to the GraphDB database.
@@ -24,6 +20,13 @@ class ChildIO {
      * and "birth_order" are the keys) pairs corresponding to a single child.
      */
     public static function write_child_data( $children ) {
+        // Getting settings
+        $settings = DataIO::get_settings();
+        $post_uri = $settings['person_settings_post_uri'];
+        $get_uri = $settings['person_settings_get_uri'];
+        $statement_iri = $settings['person_settings_statement_iri'];
+        substr( $statement_iri, -1 ) == "/" ? $statement_iri : $statement_iri . "/"; // Ensuring there's a slash at the end of the iri
+
         // By definition, the post posting the data is the child of the children
         // being posted.
         $parent_id = get_the_ID();
@@ -34,15 +37,13 @@ class ChildIO {
             not otherwise pick up on the absence of a relationship from 
             $children), the id of every child relationship is collected as we
             iterate through $children, and then ones that are found only in the
-            database are removed.
-        */
+            database are removed. */
         $child_id_array = array();
 
         foreach ( $children as $index => $child ) {
             /* There must always be at least one child group on the front end,
                so the only way to delete all children is by removing all the 
-               others and leaving the first one blank.
-            */
+               others and leaving the first one blank. */
             if ( count( $children ) == 1 && $child["person_child_name"] == "" && $parent["person_child_type"] == "none" ) {
                 // This query deletes all child relationships to the parent
                 $query = sprintf( "PREFIX coop: <http://cooperman.org/terms/>;
@@ -52,7 +53,7 @@ class ChildIO {
                     <http://cooperman.org/people/%d> ?rel ?child . };",
                     $parent_id );
 
-                DataIO::post_data( $query, 'http://localhost:7200/repositories/test-repo/statements' );
+                DataIO::post_data( $query, $post_uri );
                 continue;
             } 
             
@@ -147,7 +148,7 @@ class ChildIO {
             }
 
             array_push( $child_id_array, $child_id );
-            DataIO::post_data( $query, 'http://localhost:7200/repositories/test-repo/statements' );
+            DataIO::post_data( $query, $post_uri );
         }
 
         // Last element excluded from for loop to avoid adding extra comma
@@ -168,7 +169,7 @@ class ChildIO {
             FILTER ( ?child NOT IN ( %s )  )
         }", $parent_id, $child_uris );
 
-        DataIO::post_data( $query, 'http://localhost:7200/repositories/test-repo/statements' );
+        DataIO::post_data( $query, $post_uri );
 
         // Returns an empty string to wp_postmeta, disabling saving
         return __return_empty_string();
@@ -183,6 +184,13 @@ class ChildIO {
      * intercepted on submission and written to there.
      */
     public static function read_child_data() {
+        // Getting settings
+        $settings = DataIO::get_settings();
+        $post_uri = $settings['person_settings_post_uri'];
+        $get_uri = $settings['person_settings_get_uri'];
+        $statement_iri = $settings['person_settings_statement_iri'];
+        substr( $statement_iri, -1 ) == "/" ? $statement_iri : $statement_iri . "/"; // Ensuring there's a slash at the end of the iri
+        
         global $wpdb;
 
         $post_id = get_the_id();
@@ -204,7 +212,7 @@ class ChildIO {
                 val5,val6,val7,val8
                 val9,val10,val11,val12
         */
-        $data = DataIO::get_data( $child_query, 'http://localhost:7200/repositories/test-repo' );
+        $data = DataIO::get_data( $child_query, $get_uri );
         $child_table = explode( "\n", $data );
         // Last element (empty string) removed
         array_pop( $child_table );

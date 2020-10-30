@@ -19,6 +19,14 @@ class ParentIO {
      * pairs corresponding to a single parent.
      */
     public static function write_parent_data( $parents ) {
+        // Getting settings
+        $settings = DataIO::get_settings();
+        make_post($settings);
+        $post_uri = $settings['person_settings_post_uri'];
+        $get_uri = $settings['person_settings_get_uri'];
+        $statement_iri = $settings['person_settings_statement_iri'];
+        substr( $statement_iri, -1 ) == "/" ? $statement_iri : $statement_iri . "/"; // Ensuring there's a slash at the end of the iri
+
         // By definition, the post posting the data is the child of the parents
         // being posted.
         $child_id = get_the_ID();
@@ -46,7 +54,7 @@ class ParentIO {
                     ?parent ?rel <http://cooperman.org/people/%d> . };",
                     $child_id );
 
-                DataIO::post_data( $query, 'http://localhost:7200/repositories/test-repo/statements' );
+                DataIO::post_data( $query, $post_uri );
             } 
             
             if ( $parent["person_parent_name"] == "" || $parent["person_parent_type"] == "none" ) {
@@ -120,7 +128,7 @@ class ParentIO {
             }
 
             array_push( $parent_id_array, $parent_id );
-            DataIO::post_data( $query, 'http://localhost:7200/repositories/test-repo/statements' );
+            DataIO::post_data( $query, $post_uri );
         }
 
         // Last element excluded from for loop to avoid adding extra comma
@@ -140,7 +148,7 @@ class ParentIO {
             FILTER ( ?parent NOT IN ( %s )  )
         }", $child_id, $parent_uris );
 
-        DataIO::post_data( $query, 'http://localhost:7200/repositories/test-repo/statements' );
+        DataIO::post_data( $query, $get_uri );
 
         // Returns an empty string to wp_postmeta, disabling saving
         return __return_empty_string();
@@ -155,6 +163,13 @@ class ParentIO {
      * written there.
      */
     public static function read_parent_data() {
+        // Getting settings
+        $settings = DataIO::get_settings();
+        $post_uri = $settings['person_settings_post_uri'];
+        $get_uri = $settings['person_settings_get_uri'];
+        $statement_iri = $settings['person_settings_statement_iri'];
+        substr( $statement_iri, -1 ) == "/" ? $statement_iri : $statement_iri . "/"; // Ensuring there's a slash at the end of the iri
+        
         global $wpdb;
 
         $post_id = get_the_id();
@@ -176,7 +191,7 @@ class ParentIO {
                 val4,val5,val6, 
                 val7,val8,val9'
         */
-        $data = DataIO::get_data( $parent_query, 'http://localhost:7200/repositories/test-repo' );
+        $data = DataIO::get_data( $parent_query, $get_uri );
         $parent_table = explode( "\n", $data );
         // Last element (empty string) removed
         array_pop( $parent_table );

@@ -3,7 +3,7 @@
 /**
  * Plugin Name: People Post Type
  * Description: Adds the People post type and graph database connection.
- * Version: 0.10.1
+ * Version: 0.11.0
  * Author: Sivan Cooperman 
  */
 

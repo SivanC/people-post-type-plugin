@@ -26,6 +26,13 @@ class PartnerIO {
      * are the keys) pairs corresponding to a single partnership.
      */
     public static function write_partner_data( $partners ) {
+        // Getting settings
+        $settings = DataIO::get_settings();
+        $post_uri = $settings['person_settings_post_uri'];
+        $get_uri = $settings['person_settings_get_uri'];
+        $statement_iri = $settings['person_settings_statement_iri'];
+        substr( $statement_iri, -1 ) == "/" ? $statement_iri : $statement_iri . "/"; // Ensuring there's a slash at the end of the iri
+
         // By definition, the post posting the data is the partner of the partnee
         // being posted.
         $partner_id = get_the_ID();
@@ -54,7 +61,7 @@ class PartnerIO {
                 //     <http://cooperman.org/people/%d> ?rel ?child . };",
                 //     $parent_id );
 
-                DataIO::post_data( $query, 'http://localhost:7200/repositories/test-repo/statements' );
+                DataIO::post_data( $query, $post_uri );
                 continue;
             } 
             
@@ -78,19 +85,19 @@ class PartnerIO {
                     SPARQL* notation to denote the partnership order specific to that partner-
                     partnee coupling.
                 */
-                // $query = sprintf( "PREFIX coop: <http://cooperman.org/terms/>; 
-                //                 DELETE { 
-                //                     ?parent ?rel ?child .
-                //                     << ?parent ?rel ?child >> coop:birthOrder ?order . } 
-                //                 WHERE { ?parent ?rel ?child .
-                //                     <http://cooperman.org/people/%d> ?rel <http://cooperman.org/people/%d> . };
-                //                 INSERT DATA { 
-                //                     <http://cooperman.org/people/%d> coop:%s <http://cooperman.org/people/%d> . 
-                //                     << <http://cooperman.org/people/%d> coop:%s <http://cooperman.org/people/%d> >> coop:birthOrder %d .
-                //                 }",
-                //     $parent_id, $child_id,
-                //     $parent_id, $rel, $child_id,
-                //     $parent_id, $rel, $child_id, $birth_order );
+                $query = sprintf( "PREFIX coop: <http://cooperman.org/terms/>; 
+                                DELETE { 
+                                    ?parent ?rel ?child .
+                                    << ?parent ?rel ?child >> coop:birthOrder ?order . } 
+                                WHERE { ?parent ?rel ?child .
+                                    <http://cooperman.org/people/%d> ?rel <http://cooperman.org/people/%d> . };
+                                INSERT DATA { 
+                                    <http://cooperman.org/people/%d> coop:%s <http://cooperman.org/people/%d> . 
+                                    << <http://cooperman.org/people/%d> coop:%s <http://cooperman.org/people/%d> >> coop:birthOrder %d .
+                                }",
+                    $parent_id, $child_id,
+                    $parent_id, $rel, $child_id,
+                    $parent_id, $rel, $child_id, $birth_order );
             } else {
                 // The format for 'person_partner_group' within $meta_input is 
                 // similar to the 'person_parent_group' format expounded upon
@@ -141,7 +148,7 @@ class PartnerIO {
             }
 
             array_push( $partnee_id_array, $partnee_id );
-            DataIO::post_data( $query, 'http://localhost:7200/repositories/test-repo/statements' );
+            DataIO::post_data( $query, $post_uri );
         }
 
         // Last element excluded from for loop to avoid adding extra comma
@@ -162,7 +169,7 @@ class PartnerIO {
             FILTER ( ?child NOT IN ( %s )  )
         }", $parent_id, $child_uris );
 
-        DataIO::post_data( $query, 'http://localhost:7200/repositories/test-repo/statements' );
+        DataIO::post_data( $query, $post_uri );
 
         // Returns an empty string to wp_postmeta, disabling saving
         return __return_empty_string();
@@ -175,6 +182,13 @@ class PartnerIO {
      * default wp_postmeta table, it is intercepted on submission and written to there.
      */
     public static function read_partner_data() {
+        // Getting settings
+        $settings = DataIO::get_settings();
+        $post_uri = $settings['person_settings_post_uri'];
+        $get_uri = $settings['person_settings_get_uri'];
+        $statement_iri = $settings['person_settings_statement_iri'];
+        substr( $statement_iri, -1 ) == "/" ? $statement_iri : $statement_iri . "/"; // Ensuring there's a slash at the end of the iri
+
         global $wpdb;
 
         $post_id = get_the_id();
@@ -196,7 +210,7 @@ class PartnerIO {
                 val5,val6,val7,val8
                 val9,val10,val11,val12
         */
-        $data = DataIO::get_data( $partnee_query, 'http://localhost:7200/repositories/test-repo' );
+        $data = DataIO::get_data( $partnee_query, $get_uri );
         $partnee_table = explode( "\n", $data );
         // Last element (empty string) removed
         array_pop( $partnee_table );
@@ -210,7 +224,7 @@ class PartnerIO {
             array_push( $partners, array( "person_partnee_name" => "",
                                         "person_partnee_type" => "none",
                                         "person_partner_start_date" => "",
-                                        "person_partner_end_date" => -1 ) );
+                                        "person_partner_end_date" => "" ) );
         } else {
             foreach( $partnee_table as $index => $partnee ) {
                 // skip first row (headers, always comprised of 'partner,relationship,partnee,order')
@@ -244,7 +258,7 @@ class PartnerIO {
         // Sorts the array by birth order
         uasort( $partners, function($a, $b) { return ($a["person_partner_order"] - $b["person_partner_order"] ); } );
         //make_post(print_r($children, true));
-        return $children;
+        return $partners;
     }
 
 }

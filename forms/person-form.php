@@ -44,6 +44,18 @@ function person_register_meta_boxes( $meta_boxes ) {
 
             [
 
+                'id' => 'basic_info_header',
+
+                'type' => 'custom_html',
+
+                'std' => '<h1>Basic Information</h1>',
+
+                'tab' => 'basic_info'
+
+            ],
+
+            [
+
                 'type' => 'text',
                 // This is really important
                 'id'   => 'post_title',
@@ -227,6 +239,18 @@ function person_register_meta_boxes( $meta_boxes ) {
                     ],
 
                 ]
+
+            ],
+
+            [
+
+                'id' => 'rel_header',
+
+                'type' => 'custom_html',
+
+                'std' => '<h1>Relationships</h1>',
+
+                'tab' => 'rel'
 
             ],
 
@@ -449,21 +473,11 @@ function person_register_meta_boxes( $meta_boxes ) {
         
                     [
         
-                        'type' => 'date',
+                        'type' => 'text',
         
                         'id' => $prefix . 'partner_start_date',
         
                         'name' => "Relationship Start Date",
-        
-                        'js_options' => [
-        
-                            'dateFormat' => 'mm-dd-yy',
-        
-                            'changeYear' => true,
-                            // Allowed years for selection are 1800 to current year
-                            'yearRange' => '1800:'
-        
-                        ],
                 
                     ],
         
@@ -474,16 +488,6 @@ function person_register_meta_boxes( $meta_boxes ) {
                         'id' => $prefix . 'partner_end_date',
         
                         'name' => "Relationship End Date",
-        
-                        'js_options' => [
-        
-                            'dateFormat' => 'mm-dd-yy',
-        
-                            'changeYear' => true,
-        
-                            'yearRange' => '1800:'
-        
-                        ],
                 
                     ],
 
@@ -498,6 +502,18 @@ function person_register_meta_boxes( $meta_boxes ) {
                     ],
                     
                 ]
+
+            ],
+
+            [
+
+                'id' => 'loc_header',
+
+                'type' => 'custom_html',
+
+                'std' => '<h1>Locations</h1>',
+
+                'tab' => 'loc'
 
             ],
 
@@ -591,6 +607,26 @@ function person_register_meta_boxes( $meta_boxes ) {
 
             [
 
+                'id' => 'contact_header',
+
+                'type' => 'custom_html',
+
+                'std' => '<h1>Contact</h1>',
+
+                'tab' => 'contact'
+
+            ],
+
+            [
+
+                'type' => 'divider',
+
+                'tab' => 'contact'
+
+            ],
+
+            [
+
                 'type' => 'text',
 
                 'id'   => $prefix . 'current_address',
@@ -646,6 +682,18 @@ function person_register_meta_boxes( $meta_boxes ) {
                 'add_button' => "Add Phone Number",
 
                 'tab' => 'contact'
+
+            ],
+
+            [
+
+                'id' => 'notes_header',
+
+                'type' => 'custom_html',
+
+                'std' => '<h1>Notes</h1>',
+
+                'tab' => 'notes'
 
             ],
 

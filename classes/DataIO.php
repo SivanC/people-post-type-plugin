@@ -84,6 +84,18 @@ class DataIO {
 
         return DataIO::post_data( $query, $url );
     }
+
+    public static function get_settings() {
+        global $wpdb;
+
+        $settings = array(
+            'person_settings_post_uri' => rwmb_meta( 'person_settings_post_uri', ['object_type' => 'setting'], 'person_settings' ),
+            'person_settings_get_uri' => rwmb_meta( 'person_settings_get_uri', ['object_type' => 'setting'], 'person_settings' ),
+            'person_settings_statement_iri' => rwmb_meta( 'person_settings_statement_iri', ['object_type' => 'setting'], 'person_settings' ),
+        );
+
+        return $settings;
+    }
 }
 
 ?>

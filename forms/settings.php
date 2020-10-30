@@ -32,11 +32,37 @@ function person_register_settings_meta_boxes( $meta_boxes ) {
 
             [
 
-                'id' => $prefix . 'name',
+                'id' => $prefix . 'post_uri',
 
                 'type' => 'text',
 
-                'name' => "Name",
+                'name' => "Database POST URI",
+
+                'label_description' => "POST requests to the graph database will be sent to this URI",
+
+            ],
+
+            [
+
+                'id' => $prefix . 'get_uri',
+
+                'type' => 'text',
+
+                'name' => "Database GET URI",
+
+                'label_description' => "GET requests to the graph database will be sent to this URI",
+
+            ],
+
+            [
+
+                'id' => $prefix . 'statement_iri',
+
+                'type' => 'text',
+
+                'name' => "Statement IRI",
+
+                'label_description' => "Determines the IRI used to refer to records in the graph database, like http://example.org/people/",
 
             ],
 
