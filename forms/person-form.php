@@ -731,7 +731,17 @@ function person_register_meta_boxes( $meta_boxes ) {
                 'id' => $prefix . 'id',
                 // placeholder value to be modified by a filter below
                 'std' => '-1'
-            ]
+            ],
+            // For records scraped from the old site which have the original html
+            [
+
+                'type' => 'hidden',
+
+                'id' => $prefix . 'original_html',
+
+                'std' => "",
+
+            ],
 
         ],
 
