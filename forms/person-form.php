@@ -30,7 +30,7 @@ function person_register_meta_boxes( $meta_boxes ) {
 
         'title'      => esc_html__( 'Person Meta Box', 'online-generator' ),
 
-        'id'         => 'person_meta_box',
+        'id'         => $prefix . 'meta_box',
 
         'post_types' => ['person'],
 

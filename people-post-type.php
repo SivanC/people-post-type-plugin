@@ -22,7 +22,7 @@ include('classes/ParentIO.php');
 include('classes/PartnerIO.php');
 
 // JSON Data import
-include('JsonImporter.php');
+include('import/JsonImporter.php');
 
 // Child IO filters
 add_filter( 'rwmb_person_child_group_value', [ 'ChildIO', 'write_child_data' ] );
@@ -42,8 +42,7 @@ add_action( 'before_delete_post', [ 'DataIO', 'delete_data' ], 10, 1 );
 // Import testing
 function test_import() {
     // path relative to JsonImporter.php
-    $importer = new JsonImporter('./data/data.json');
-    echo( "<script>console.log(\"instantiated\")</script>" );
+    $importer = new JsonImporter(__DIR__ . '../data/data.json');
     $importer->import_post(525);
 }
 add_action( 'save_post', 'test_import' );

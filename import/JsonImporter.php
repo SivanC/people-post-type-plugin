@@ -4,7 +4,7 @@
  * This class is used to import the JSON records from the old website into
  * wordpress posts.
  * 
- * @version 0.2.1
+ * @version 0.2.2
  * @author Sivan Cooperman
  */
 class JsonImporter {
@@ -12,11 +12,8 @@ class JsonImporter {
     private $json;
 
     public function __construct( $filename ) {
-
-        $file = fopen( $filename, 'r' );
-        $json_string = fread( $file, filesize( $filename ) );
-        fclose( $file );
-        $this->$json = json_decode( $json_string, $assoc = true );
+        $json_string = file_get_contents( $filename );
+        $this->json = json_decode( $json_string, $assoc = true );
     }
 
     public function getJson() {
@@ -37,11 +34,14 @@ class JsonImporter {
     }
 
     function import_post( $index ) {
+        // Working with such a large file we need to increase the memory
+        // capacity for the script.
+        ini_set( "memory_limit", "16M" );
         // Puts the JSON in an associative array
         $data = $this->getJson()['family'];
 
         // Get person by index
-        $person = $data[$index];
+        $person = $data[$index]['person'];
 
         // Basic outline of all the fields needed for the post
         $meta_input = array(
@@ -115,7 +115,7 @@ class JsonImporter {
                         }
                         // Sometimes there are notes in these sections, seven
                         // words is my arbitrary cutoff. By no means foolproof.
-                        else if ( substr_count( $parent['name'], ' ') >= 7 ) {
+                        else if ( substr_count( $parent['title'], ' ') >= 7 ) {
                             $meta_input['person_notes'] .= $parent['name'] . "\n";
                         } else {
                             // Getting rid of the placeholder array
@@ -123,7 +123,7 @@ class JsonImporter {
                                 array_pop( $meta_input['person_parent_group'] );
                             }
                             $meta_input['person_parent_group'][] = array(
-                                'person_parent_name' => map_names()[$parent['path']],
+                                'person_parent_name' => $this->map_name( $parent['path'] ),
 
                                 'person_parent_type' => $parentType,
                             );
@@ -247,15 +247,23 @@ class JsonImporter {
     }
 
     /**
-     * Generates an array of key value pairs containing a record's path (from the
-     * old website) and full name (as shown on its own old page).
+     * Gets the full name of a record via its old-website path, ensuring the 
+     * abbreviated name present in other records is not used.
+     * 
+     * @param String $path a path on the old website corresponding to a record.
      */
-    function map_names() {
+    function map_name( $path ) {
         $data = $this->json['family'];
 
-        $names = array();
-        foreach ( $data['person'] as $person ) {
-            $names[$person['path']] = $person['name'];
+        $name = "";
+        foreach ( $data as $person ) {
+            // Forward slash at the beginning of the path is inconsistently
+            // used, so the regex matches it with or without.
+            $pathExp = preg_quote( $person['person']['path'], "/" );
+            echo( "<script>console.log(\"{$pathExp}\")</script>" );
+            if ( preg_match( "/\/*{$pathExp}/", $person['person']['path'] ) ) {
+                return $person['person']['name'];
+            }
         }
 
         return $names;
