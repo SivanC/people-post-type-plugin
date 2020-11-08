@@ -21,7 +21,6 @@ class ParentIO {
     public static function write_parent_data( $parents ) {
         // Getting settings
         $settings = DataIO::get_settings();
-        make_post($settings);
         $post_uri = $settings['person_settings_post_uri'];
         $get_uri = $settings['person_settings_get_uri'];
         $statement_iri = $settings['person_settings_statement_iri'];
