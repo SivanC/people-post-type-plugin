@@ -96,6 +96,10 @@ class DataIO {
 
         return $settings;
     }
+
+    public static function console_log( $string ) {
+        echo("<script>console.log(\"{$string}\");</script>");
+    }
 }
 
 ?>

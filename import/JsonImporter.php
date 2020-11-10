@@ -4,7 +4,7 @@
  * This class is used to import the JSON records from the old website into
  * wordpress posts.
  * 
- * @version 0.2.2
+ * @version 0.3.0
  * @author Sivan Cooperman
  */
 class JsonImporter {
@@ -98,16 +98,22 @@ class JsonImporter {
             'person_notes' => "",
         );
 
-        foreach ( $person['sections'] as $sectionKey => $section ) {
+        $sections = $person['sections'];
+        foreach ( $sections as $sectionKey => $section ) {
             $partnerExp = '/.*Spouse.*/i';
+            // TODO: Don't forget the Haga family who has a
+            // "Pre-adoptive Children" section that will trip the filter.
             $childExp = '/.*(Adopt|Foster)*.*Child.*/i';
             $parentExp = '/.*(Adopt|Foster)*.*Parent.*/i';
+
             $sectionName = $section['section'];
+            DataIO::console_log("Section Name: " . $sectionName );
             switch ( $sectionName ) {
                 case preg_match( $parentExp, $sectionName ) ? $sectionName : !$sectionName:
                     // Sets the relationship type to foster, adopt, or bio
                     $parentType = strpos( $sectionName, "Adopt") ? 'adopt' : ( strpos( $sectionName, "Foster" ) ? 'foster' : 'bio' );
-                    foreach ( $section['content'] as $parentKey => $parent ) {
+                    $content = $section['content'];
+                    foreach ( $content as $parentKey => $parent ) {
                         // Sometimes there are blank parents on the records,
                         // so they get skipped
                         if ( $parent['title'] == "" ) {
@@ -131,18 +137,20 @@ class JsonImporter {
                     } break;
                 case preg_match( $childExp, $sectionName ) ? $sectionName : !$sectionName:
                     $childType = strpos( $sectionName, "Adopt") ? 'adopt' : ( strpos( $sectionName, "Foster" ) ? 'foster' : 'bio' );
-                    foreach ( $section['content'] as $childKey => $child ) {
+
+                    $content = $section['content'];
+                    foreach ( $content as $childKey => $child ) {
                         if ( $child['title'] == "" ) {
                             continue;
-                        } else if ( substr_count( $child['name'], ' ') >= 7 ) {
-                            $post['person_notes'] .= $child['name'] . "\n";
+                        } else if ( substr_count( $child['title'], ' ') >= 7 ) {
+                            $post['person_notes'] .= $child['title'] . "\n";
                         } else {
                             // Getting rid of the placeholder array
                             if ( $meta_input['person_child_group'][0]['person_child_name'] == "" ) {
                                 array_pop( $meta_input['person_child_group'] );
                             }
                             $meta_input['person_child_group'][] = array(
-                                'person_child_name' => map_names()[$child['path']],
+                                'person_child_name' => $this->map_name( $child['path'] ),
 
                                 'person_child_type' => $childType,
 
@@ -153,18 +161,19 @@ class JsonImporter {
                         }
                     } break;
                 case preg_match( $partnerExp, $sectionName ) ? $sectionName : !$sectionName:
-                    foreach ( $section['content'] as $partnerKey => $partner ) {
+                    $content = $section['content'];
+                    foreach ( $content as $partnerKey => $partner ) {
                         if ( $partner['title'] == "" ) {
                             continue;
-                        } else if ( substr_count( $partner['name'], ' ') >= 7 ) {
-                            $post['person_notes'] .= $partner['name'] . "\n";
+                        } else if ( substr_count( $partner['title'], ' ') >= 7 ) {
+                            $post['person_notes'] .= $partner['titles'] . "\n";
                         } else {
                             // Getting rid of the placeholder array
                             if ( $meta_input['person_partner_group'][0]['person_partner_name'] == "" ) {
                                 array_pop( $meta_input['person_partner_group'] );
                             }
                             $meta_input['person_partner_group'][] = array(
-                                'person_partner_name' => map_names()[$partner['path']],
+                                'person_partner_name' => $this->map_name( $partner['path'] ),
 
                                 'person_partner_type' => 'married',
 
@@ -180,7 +189,10 @@ class JsonImporter {
                     } break;
                 case "History":
                 case "Details":
-                    foreach ( $section['content'] as $detailKey => $detail ) {
+                    $content = $section['content'];
+                    DataIO::console_log(print_r($section, true));
+                    foreach ( $content as $detailKey => $detail ) {
+                        DataIO::console_log(print_r($detail, true));
                         // Grab title and path if they exist otherwise start adding details
                         if ( $detail['title'] != "" ) {
                             $meta_input['notes'][] = $detail['title'];
@@ -227,7 +239,8 @@ class JsonImporter {
                     }
                     break;
                 default:
-                    make_post($sectionName);
+                    // make_post($sectionName);
+                    echo("<script>console.log(\"{$sectionName}\")</script>;");
             }
         }
 
@@ -243,7 +256,7 @@ class JsonImporter {
             'meta_input' => $meta_input
         );
 
-        $error = wp_insert_post( $postarr, true );
+        //$error = wp_insert_post( $postarr, true );
     }
 
     /**
@@ -260,7 +273,6 @@ class JsonImporter {
             // Forward slash at the beginning of the path is inconsistently
             // used, so the regex matches it with or without.
             $pathExp = preg_quote( $person['person']['path'], "/" );
-            echo( "<script>console.log(\"{$pathExp}\")</script>" );
             if ( preg_match( "/\/*{$pathExp}/", $person['person']['path'] ) ) {
                 return $person['person']['name'];
             }
