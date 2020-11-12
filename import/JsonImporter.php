@@ -4,7 +4,7 @@
  * This class is used to import the JSON records from the old website into
  * wordpress posts.
  * 
- * @version 0.3.0
+ * @version 0.3.1
  * @author Sivan Cooperman
  */
 class JsonImporter {
@@ -14,6 +14,12 @@ class JsonImporter {
     public function __construct( $filename ) {
         $json_string = file_get_contents( $filename );
         $this->json = json_decode( $json_string, $assoc = true );
+    }
+
+    public static function init() {
+        $importer = new self( __DIR__ . '/../data/data.json' );
+        DataIO::console_log("Constructing...");
+        add_action( 'after_submit_import_settings', [$importer, 'import_post'], 10, 1 );
     }
 
     public function getJson() {
@@ -97,7 +103,6 @@ class JsonImporter {
 
             'person_notes' => "",
         );
-
         $sections = $person['sections'];
         foreach ( $sections as $sectionKey => $section ) {
             $partnerExp = '/.*Spouse.*/i';
@@ -122,14 +127,14 @@ class JsonImporter {
                         // Sometimes there are notes in these sections, seven
                         // words is my arbitrary cutoff. By no means foolproof.
                         else if ( substr_count( $parent['title'], ' ') >= 7 ) {
-                            $meta_input['person_notes'] .= $parent['name'] . "\n";
+                            $meta_input['person_notes'] .= $parent['title'] . "\n";
                         } else {
                             // Getting rid of the placeholder array
                             if ( $meta_input['person_parent_group'][0]['person_parent_name'] == "" ) {
                                 array_pop( $meta_input['person_parent_group'] );
                             }
                             $meta_input['person_parent_group'][] = array(
-                                'person_parent_name' => $this->map_name( $parent['path'] ),
+                                'person_parent_name' => empty( $parent['path'] ) ? $parent['title'] : $this->map_name( $parent['path'] ),
 
                                 'person_parent_type' => $parentType,
                             );
@@ -150,7 +155,7 @@ class JsonImporter {
                                 array_pop( $meta_input['person_child_group'] );
                             }
                             $meta_input['person_child_group'][] = array(
-                                'person_child_name' => $this->map_name( $child['path'] ),
+                                'person_child_name' => empty( $child['path'] ) ? $child['title'] : $this->map_name( $child['path'] ),
 
                                 'person_child_type' => $childType,
 
@@ -173,7 +178,7 @@ class JsonImporter {
                                 array_pop( $meta_input['person_partner_group'] );
                             }
                             $meta_input['person_partner_group'][] = array(
-                                'person_partner_name' => $this->map_name( $partner['path'] ),
+                                'person_partner_name' => empty( $partner['path'] ) ? $partner['title'] : $this->map_name( $partner['path'] ),
 
                                 'person_partner_type' => 'married',
 
@@ -190,33 +195,35 @@ class JsonImporter {
                 case "History":
                 case "Details":
                     $content = $section['content'];
-                    DataIO::console_log(print_r($section, true));
                     foreach ( $content as $detailKey => $detail ) {
-                        DataIO::console_log(print_r($detail, true));
                         // Grab title and path if they exist otherwise start adding details
                         if ( $detail['title'] != "" ) {
                             $meta_input['notes'][] = $detail['title'];
                         } if ( $detail['path'] != "" ) {
                             $meta_input['notes'][] = $detail['path'];
                         }
-                        $detail = $detail['details'];
-                        // birth date/place, hebrew/married name are present for every record, but not always filled out
-                        if ( in_array( $detail['detail'], array( "birth date", "birth place", "hebrew name", "married name" ) ) ) {
-                            if ( $detail['detail'] != "" ) {
-                                $meta_input['details'][$detail['detail']] = $detail['detail_content'];
+                        $details = $detail['details'];
+                        foreach ( $details as $dKey => $d ) {
+                            // birthdate/place, hebrew/married name are present
+                            // for every record, but not always filled out
+                            if ( in_array( $d['detail'], array( "birth date", "birth place", "hebrew name", "married name" ) ) ) {
+                                if ( $d['detail'] != "" ) {
+                                    $meta_input['details'][$d['detail']] = $d['detail_content'];
+                                }
+                            } else {
+                                $meta_input['notes'][] = $d['detail_content'];
                             }
-                        } else {
-                            $meta_input['notes'][] = $detail['detail_content'];
                         }
                     }
                     break;
                 case "Contact":
                     $emailExp = '/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i';
                     $phoneExp = '/\b\D?(\d{3})\D?\D?(\d{3})\D?(\d{4})\b/';
-                    foreach ( $section['content'] as $contactKey => $contact ) {
-                        if ( preg_match( $emailExp, $contact, $emailMatches) ) {
-                            if ( $meta_input['person_email'][0] == "" ) {
-                                array_pop( $post['person_email'] );
+                    $content = $section['content'];
+                    foreach ( $content as $contactKey => $contact ) {
+                        if ( preg_match( $emailExp, $contact['title'], $emailMatches) ) {
+                            if ( empty( $meta_input['person_email'][0] ) ) {
+                                array_pop( $meta_input['person_email'] );
                             } else {
                                 foreach ( $emailMatches as $emailMatchIndex => $emailMatch ) {
                                     // First element of the $matches array is the whole string
@@ -225,8 +232,8 @@ class JsonImporter {
                                     }
                                 }
                             }
-                        } if ( preg_match( $phoneExp, $contact, $phoneMatches ) ) {
-                            if ( $meta_input['person_phone_number'][0] == "" ) {
+                        } if ( preg_match( $phoneExp, $contact['title'], $phoneMatches ) ) {
+                            if ( empty( $meta_input['person_phone_number'][0] ) ) {
                                 array_pop( $meta_input['person_phone_number'] );
                             } else {
                                 foreach ( $phoneMatches as $phoneMatchIndex => $phoneMatch ) {
@@ -238,14 +245,16 @@ class JsonImporter {
                         }
                     }
                     break;
+                case "Siblings":
+                    break;
                 default:
                     // make_post($sectionName);
-                    echo("<script>console.log(\"{$sectionName}\")</script>;");
+                    echo("<script>console.log(\"{$sectionName}\")</script>");
             }
         }
 
         $postarr = array(
-            'post_title' => $person['title'],
+            'post_title' => $person['name'],
 
             'post_content' => '',
 
@@ -256,7 +265,9 @@ class JsonImporter {
             'meta_input' => $meta_input
         );
 
-        //$error = wp_insert_post( $postarr, true );
+        //make_post((print_r($meta_input, true)));
+
+        $error = wp_insert_post( $postarr, true );
     }
 
     /**
@@ -268,17 +279,18 @@ class JsonImporter {
     function map_name( $path ) {
         $data = $this->json['family'];
 
-        $name = "";
-        foreach ( $data as $person ) {
+        foreach ( $data as $personKey => $person ) {
+            $person = $person['person'];
+
             // Forward slash at the beginning of the path is inconsistently
             // used, so the regex matches it with or without.
-            $pathExp = preg_quote( $person['person']['path'], "/" );
-            if ( preg_match( "/\/*{$pathExp}/", $person['person']['path'] ) ) {
-                return $person['person']['name'];
+            if ( preg_match( sprintf("/\/{0,1}%s/", preg_quote( $path, "/" ) ), $person['path'] ) ) {
+                return $person['name'];
             }
         }
 
-        return $names;
+        return "NOT FOUND";
+
     }
 }
 

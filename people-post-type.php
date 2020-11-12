@@ -25,28 +25,24 @@ include('classes/PartnerIO.php');
 include('import/JsonImporter.php');
 include('import/import-form.php');
 
-// Child IO filters
-add_filter( 'rwmb_person_child_group_value', [ 'ChildIO', 'write_child_data' ] );
-add_filter( 'rwmb_person_child_group_field_meta', [ 'ChildIO', 'read_child_data' ] );
+// // Child IO filters
+// add_filter( 'rwmb_person_child_group_value', [ 'ChildIO', 'write_child_data' ] );
+// add_filter( 'rwmb_person_child_group_field_meta', [ 'ChildIO', 'read_child_data' ] );
 
-// Parent IO filters
-add_filter( 'rwmb_person_parent_group_value', [ 'ParentIO', 'write_parent_data' ] );
-add_filter( 'rwmb_person_parent_group_field_meta', [ 'ParentIO', 'read_parent_data' ] );
+// // Parent IO filters
+// add_filter( 'rwmb_person_parent_group_value', [ 'ParentIO', 'write_parent_data' ] );
+// add_filter( 'rwmb_person_parent_group_field_meta', [ 'ParentIO', 'read_parent_data' ] );
 
-// Partner IO filters
-add_filter( 'rwmb_person_partner_group_value', [ 'PartnerIO', 'write_partner_data' ] );
-add_filter( 'rwmb_person_partner_group_field_meta', [ 'PartnerIO', 'read_partner_data' ] );
+// // Partner IO filters
+// add_filter( 'rwmb_person_partner_group_value', [ 'PartnerIO', 'write_partner_data' ] );
+// add_filter( 'rwmb_person_partner_group_field_meta', [ 'PartnerIO', 'read_partner_data' ] );
 
-// On delete
+// // On delete
 // add_action( 'before_delete_post', [ 'DataIO', 'delete_data' ], 10, 1 );
 
-// Import testing
-function test_import() {
-    // path relative to JsonImporter.php
-    $importer = new JsonImporter(__DIR__ . '../data/data.json');
-    $importer->import_post(525);
-}
-add_action( 'save_post', 'test_import' );
+// On load for importing
+add_action( 'plugins_loaded', ['JsonImporter', 'init'] );
+
 
 /**
  * Creates a 'person'-type post with a given title. Useful for debugging when

@@ -65,6 +65,7 @@ function person_register_meta_boxes( $meta_boxes ) {
                 'std'  => $post_title,
 
                 'tab' => 'basic_info'
+                
             ],
 
 
@@ -144,6 +145,8 @@ function person_register_meta_boxes( $meta_boxes ) {
 
                 'collapsible' => true,
 
+                'default_state' => 'collapsed',
+
                 'tab' => 'basic_info',
 
                 'fields' => [
@@ -201,6 +204,8 @@ function person_register_meta_boxes( $meta_boxes ) {
                 'group_title' => "Death Information",
 
                 'collapsible' => true,
+
+                'default_state' => 'collapsed',
 
                 'tab' => 'basic_info',
 
@@ -526,6 +531,8 @@ function person_register_meta_boxes( $meta_boxes ) {
                 'group_title' => "Location {#}",
 
                 'collapsible' => true,
+                
+                'default_state' => 'collapsed',
 
                 'clone' => true,
 
