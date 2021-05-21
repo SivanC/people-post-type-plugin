@@ -41,17 +41,19 @@ class ParentIO {
         $parent_id_array = array();
 
         foreach ( $parents as $parent ) {
-            /* There must always be at least one parent group, so the only way
-               to delete all parents is by removing all the others and leaving
-               the first one blank.
+            /* Metabox requires that there must always be at least one parent group, 
+               so the only way to delete all parents is by removing all the others 
+               and leaving the first one blank.
             */
             if ( count( $parents ) == 1 && $parent["person_parent_name"] == "" && $parent["person_parent_type"] == "none" ) {
-                // This query deletes all parent relationships to the child
-                $query = sprintf( "PREFIX coop: <http://cooperman.org/terms/>;
-                DELETE { ?parent ?rel ?child . } 
-                WHERE { ?parent ?rel ?child .
-                    ?parent ?rel <http://cooperman.org/people/%d> . };",
-                    $child_id );
+                // This query deletes all parent relationships to the child,
+                // both literal (a is the father of b) and implied (from a's perspective b is his first child)
+                $query = sprintf(  
+                    "PREFIX coop: <http://cooperman.org/terms/>;
+                    DELETE WHERE { << ?parent ?rel <%s%d> >> coop:birth ?order . }; 
+                    DELETE WHERE { ?parent ?rel <%s%d> . }",
+                $statement_iri, $child_id,
+                $statement_iri, $child_id );
 
                 DataIO::post_data( $query, $post_uri );
             } 
@@ -67,20 +69,29 @@ class ParentIO {
             $rel = $parent['person_parent_type'];
 
             if ( $parent_id != -1 ) {
+
+                // Getting current number of children of the parent
+                $num_children = $parent[]
+
                 /*  $query is a SPARQL query that is sent to the GraphDB database
-                    Deletes all previous relationships between the parent and child and
-                    inserts the new relationship (as bio, adopt, or 
-                    foster) using the parent and child's IDs (same as their post IDs).
+
+                    Deletes previous literal relationships between the parent and child and
+                    inserts the new relationship (as bio, adopt, or foster) using the parent
+                    and child's IDs (same as their post IDs).
+
                     Note this assumes the parent is in the database, which is validated
                     via the above conditional.
+
+                    Does not alter existing birth order statements as the order
+                    can only be adjusted from the parent record, but appends the
+                    child record to the end of the list.
                 */
-                $query = sprintf( "PREFIX coop: <http://cooperman.org/terms/>; 
-                                DELETE { ?parent ?rel ?child . } 
-                                WHERE { ?parent ?rel ?child .
-                                    <http://cooperman.org/people/%d> ?rel <http://cooperman.org/people/%d> . };
-                                INSERT DATA { <http://cooperman.org/people/%d> coop:%s <http://cooperman.org/people/%d> . }",
-                    $parent_id, $child_id,
-                    $parent_id, $rel . "Parent", $child_id );
+                $query = sprintf( 
+                    "PREFIX coop: <http://cooperman.org/terms/>; 
+                    DELETE WHERE { <%s%d> ?rel <%s%d> };
+                    INSERT DATA { <%s%d> coop:%s <%s%d> }",
+                $statement_iri, $parent_id, $statement_iri, $child_id,
+                $statement_iri, $parent_id, $rel, $statement_iri, $child_id );
             } else {
                 // The format for 'person_child_group' within $meta_input is 
                 // similar to the 'person_parent_group' format expounded upon
@@ -113,17 +124,21 @@ class ParentIO {
                     'meta_input' => $meta_input
                 );
 
-                // If the act of inserting the post generates any errors they are
-                // saved here
+                // Saves any posting-related error msgs
                 $error = wp_insert_post( $postarr, true );
 
                 $parent_id = intval( get_id( $parent['person_parent_name'] ) );
                 
                 // This query does not worry about deleting existing data because
-                // the parent is assumed to be absent from both databases.
-                $query = sprintf( "PREFIX coop: <http://cooperman.org/terms/>; 
-                                INSERT DATA { <http://cooperman.org/people/%d> coop:%s <http://cooperman.org/people/%d> . }",
-                                        $parent_id, $rel . "Parent", $child_id );
+                // the parent is assumed to be absent from both databases. Assumes
+                // the child is ordered and is the first child of the parent.
+                $query = sprintf( 
+                    "PREFIX coop: <http://cooperman.org/terms/>; 
+                    INSERT DATA { 
+                        <%s%d> coop:%s <%s%d> .
+                        << <%s%d> coop:%s <%s%d> >> coop:birth %d . 
+                    }",
+                $statement_iri, $parent_id, $rel, $statement_iri, $child_id );
             }
 
             array_push( $parent_id_array, $parent_id );
@@ -134,18 +149,17 @@ class ParentIO {
         // See $parent_id_array definition above for why the steps below are taken
         $parent_uris = "";
         for ( $i = 0; $i < ( count( $parent_id_array ) - 1 ); $i++ ) {
-            $id = "<http://cooperman.org/people/" . strval($parent_id_array[$i]) . ">";
+            $id = "<" . $statement_iri . strval($parent_id_array[$i]) . ">";
             $parent_uris .= $id . ", ";
         }
-        $parent_uris .= "<http://cooperman.org/people/" . strval( array_pop( $parent_id_array ) ) . ">";
+        $parent_uris .= "<" . $statement_iri . strval( array_pop( $parent_id_array ) ) . ">";
 
-        $query = sprintf( "PREFIX coop: <http://cooperman.org/terms/>;
-        DELETE { ?parent ?relationship ?child . }
-        WHERE { 
-            ?parent ?relationship ?child .
-            ?parent ?relationship <http://cooperman.org/people/%d> .
-            FILTER ( ?parent NOT IN ( %s )  )
-        }", $child_id, $parent_uris );
+        $query = sprintf( 
+        "PREFIX coop: <http://cooperman.org/terms/>;
+        DELETE WHERE { 
+            ?parent ?rel <%s%d> .
+            FILTER ( ?parent NOT IN ( %s )  ) }",
+        $statement_iri, $child_id, $parent_uris );
 
         DataIO::post_data( $query, $get_uri );
 
@@ -177,12 +191,13 @@ class ParentIO {
         // database.
         $parent_query = sprintf( 
             "PREFIX coop: <http://cooperman.org/terms/>
-            SELECT ?parent ?relationship ?child
+            SELECT ?parent ?rel ?child
             WHERE {
                 ?parent ?relationship ?child;
-                    ?relationship <http://cooperman.org/people/%d> .
-                    FILTER ( ?relationship IN ( coop:bio, coop:adopt, coop:foster ) )
-            }", $post_id );
+                    ?relationship <%s%d> .
+                FILTER ( ?relationship IN ( coop:bio, coop:adopt, coop:foster ) )
+            }", 
+        $statement_iri, $post_id );
 
         /*  The GET request performed in get_data() returns a table as a string, 
             rows separated by newlines, columns separated by commas:
@@ -217,7 +232,7 @@ class ParentIO {
 
                 // $parent_id and $parent_rel are derived from rows of the following
                 // format:
-                // <http://cooperman.org/people/123> <http://cooperman.org/terms/bio> <http://cooperman.org/people/456>
+                // <http://example.com/people/123> <http://example.com/terms/bio> <http://example.com/people/456>
                 // where 123 is the parent id, bio is the relationship, and 456 is the child id
                 $parent_rel = substr( $parent[1], 27, -6 );
 

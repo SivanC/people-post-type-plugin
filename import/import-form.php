@@ -41,13 +41,11 @@ function import_register_settings_meta_boxes( $meta_boxes ) {
 
                 'id' => $prefix . 'import_id',
 
-                'type' => 'number',
+                'type' => 'text',
 
                 'name' => "Record ID",
 
                 'label_description' => "Enter the ID of the record to be imported. -1 for all records.",
-
-                'min' => -1,
 
                 'std' => "",
 
@@ -65,6 +63,6 @@ function call_post_import() {
 
     do_action( 'after_submit_import_settings', $record_id );
 }
-add_action( 'mb_settings_page_submit_buttons', 'call_post_import' );
+add_action( 'rwmb_import_settings_import_id_after_save_field', 'call_post_import' );
 
 ?>

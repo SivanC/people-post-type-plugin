@@ -21,11 +21,14 @@ class ChildIO {
      */
     public static function write_child_data( $children ) {
         // Getting settings
+        DataIO::console_log("Getting settings... (child)");
         $settings = DataIO::get_settings();
         $post_uri = $settings['person_settings_post_uri'];
         $get_uri = $settings['person_settings_get_uri'];
         $statement_iri = $settings['person_settings_statement_iri'];
         substr( $statement_iri, -1 ) == "/" ? $statement_iri : $statement_iri . "/"; // Ensuring there's a slash at the end of the iri
+
+        DataIO::console_log(printf("Example statement predicate: <%s%d>", $statement_iri, 11));
 
         // By definition, the post posting the data is the child of the children
         // being posted.
@@ -40,24 +43,27 @@ class ChildIO {
             database are removed. */
         $child_id_array = array();
 
+        DataIO::console_log("Adding published children to db...");
         foreach ( $children as $index => $child ) {
             /* There must always be at least one child group on the front end,
                so the only way to delete all children is by removing all the 
                others and leaving the first one blank. */
             if ( count( $children ) == 1 && $child["person_child_name"] == "" && $parent["person_child_type"] == "none" ) {
+                DataIO::console_log("No children detected, removing all child relationships to parent...");
                 // This query deletes all child relationships to the parent
-                $query = sprintf( "PREFIX coop: <http://cooperman.org/terms/>;
-                DELETE { ?parent ?rel ?child .
-                    << ?parent ?rel ?child >> c:birth ?order . } 
-                WHERE { ?parent ?rel ?child .
-                    <http://cooperman.org/people/%d> ?rel ?child . };",
-                    $parent_id );
+                $query = sprintf("
+                PREFIX coop: <http://cooperman.org/terms/>;
+                    DELETE WHERE { << <%s%d> ?rel ?child >> coop:birth ?order . }; 
+                    DELETE WHERE { <%s%d> ?rel ?child . }",
+                $statement_iri, $parent_id,
+                $statement_iri, $parent_id );
 
                 DataIO::post_data( $query, $post_uri );
                 continue;
             } 
             
             if ( $child["person_child_name"] == "" || $child["person_child_type"] == "none" ) {
+                DataIO::console_log("Empty child found");
                 continue;
             }
 
@@ -72,11 +78,13 @@ class ChildIO {
             // number of unordered children encountered to get the real number.
             $num_unordered_children = 0;
             if ( !( $child['person_child_ordered'] == 1 ) ) {
+                DataIO::console_log("Unrdered child detected...");
                 $num_unordered_children++;
                 $birth_order = -1;
             } else {
                 // Get birth order based on ordering of children in the parent post front end
                 $birth_order = $index - $num_unordered_children;
+                DataIO::console_log("Ordered child detected");
             }
 
             if ( $child_id != -1 ) {
@@ -89,19 +97,15 @@ class ChildIO {
                     SPARQL* notation to denote the birth order specific to that parent-
                     child coupling.
                 */
-                $query = sprintf( "PREFIX coop: <http://cooperman.org/terms/>; 
-                                DELETE { 
-                                    ?parent ?rel ?child .
-                                    << ?parent ?rel ?child >> coop:birthOrder ?order . } 
-                                WHERE { ?parent ?rel ?child .
-                                    <http://cooperman.org/people/%d> ?rel <http://cooperman.org/people/%d> . };
-                                INSERT DATA { 
-                                    <http://cooperman.org/people/%d> coop:%s <http://cooperman.org/people/%d> . 
-                                    << <http://cooperman.org/people/%d> coop:%s <http://cooperman.org/people/%d> >> coop:birthOrder %d .
-                                }",
-                    $parent_id, $child_id,
-                    $parent_id, $rel, $child_id,
-                    $parent_id, $rel, $child_id, $birth_order );
+                $query = sprintf( 
+                    "PREFIX coop: <http://cooperman.org/terms/>; 
+                    DELETE WHERE { <%s%d> ?rel <%s%d> };
+                    INSERT DATA { <%s%d coop:%s <%s%d> }",
+                $statement_iri, $parent_id, $statement_iri, $child_id,
+                $statement_iri, $parent_id, $rel, $statement_iri, $child_id );
+
+                DataIO::console_log("Child found, creating query to update db...");
+
             } else {
                 // The format for 'person_child_group' within $meta_input is 
                 // similar to the 'person_parent_group' format expounded upon
@@ -130,9 +134,13 @@ class ChildIO {
                     'meta_input' => $meta_input
                 );
 
+                DataIO::console_log("Posting child to database...");
+
                 // If the act of inserting the post generates any errors they are
                 // saved here
                 $error = wp_insert_post( $postarr, true );
+
+                DataIO::console_log("Child posted with possible error: $error");
 
                 $child_id = intval( get_id( $child['person_child_name'] ) );
                 
@@ -140,11 +148,11 @@ class ChildIO {
                 // the child is assumed to be absent from both databases.
                 $query = sprintf( "PREFIX coop: <http://cooperman.org/terms/>; 
                                 INSERT DATA { 
-                                    <http://cooperman.org/people/%d> coop:%s <http://cooperman.org/people/%d> .
-                                    << <http://cooperman.org/people/%d> coop:%s <http://cooperman.org/people/%d> >> coop:birthOrder %d
+                                    <%s%d> coop:%s <%s%d> .
+                                    << <%s%d> coop:%s <%s%d> >> coop:birthOrder %d
                                 }",
-                    $parent_id, $rel, $child_id,
-                    $parent_id, $rel, $child_id, $birth_order );
+                    $statement_iri, $parent_id, $rel, $statement_iri, $child_id,
+                    $statement_iri, $parent_id, $rel, $statement_iri, $child_id, $birth_order );
             }
 
             array_push( $child_id_array, $child_id );
@@ -155,19 +163,23 @@ class ChildIO {
         // See $child_id_array definition above for why the steps below are taken
         $child_uris = "";
         for ( $i = 0; $i < ( count( $child_id_array ) - 1 ); $i++ ) {
-            $id = "<http://cooperman.org/people/" . strval($child_id_array[$i]) . ">";
+            $id = "<" . $statement_iri . strval($child_id_array[$i]) . ">";
             $child_uris .= $id . ", ";
         }
-        $child_uris .= "<http://cooperman.org/people/" . strval( array_pop( $child_id_array ) ) . ">";
+        $child_uris .= "<" . $statement_iri . strval( array_pop( $child_id_array ) ) . ">";
+
+        DataIO::console_log("Updating db to remove orphaned children (not like that!)...");
 
         // This query deletes all children who are not in $child_uris
-        $query = sprintf( "PREFIX coop: <http://cooperman.org/terms/>;
+        $query = sprintf( "
+        PREFIX coop: <http://cooperman.org/terms/>;
         DELETE { ?parent ?relationship ?child . }
         WHERE { 
             ?parent ?relationship ?child .
-            <http://cooperman.org/people/%d> ?relationship  ?child .
+            <%s%d> ?relationship  ?child .
             FILTER ( ?child NOT IN ( %s )  )
-        }", $parent_id, $child_uris );
+        }", $statement_iri, $parent_id, 
+        $child_uris );
 
         DataIO::post_data( $query, $post_uri );
 
@@ -199,12 +211,12 @@ class ChildIO {
         // database.
         $child_query = sprintf( 
             "PREFIX coop: <http://cooperman.org/terms/>
-            SELECT ?parent ?relationship ?child ?order
+            SELECT ?parent ?rel ?child
             WHERE {
-                << ?parent ?relationship ?child >> coop:birthOrder ?order .
-                << <http://cooperman.org/people/%d> ?relationship ?child >> coop:birthOrder ?order .
+                ?parent ?relationship ?child;
+                    ?relationship <%s%d> .
                 FILTER ( ?relationship IN ( coop:bio, coop:adopt, coop:foster ) )
-            }", $post_id );
+            }", $statement_iri, $post_id );
 
         /*  The GET request performed in get_data() returns a table as a string, 
             rows separated by newlines, columns separated by commas:

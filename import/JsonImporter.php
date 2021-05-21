@@ -11,19 +11,44 @@ class JsonImporter {
 
     private $json;
 
-    public function __construct( $filename ) {
+    public function __construct( $filename, $extras_filename ) {
         $json_string = file_get_contents( $filename );
         $this->json = json_decode( $json_string, $assoc = true );
+
+        $extra_json_string = file_get_contents( $extras_filename );
+        $this->extras = json_decode( $extra_json_string, $assoc = true );
+
+        $this->extra_names = array();
+        $data = $this->getExtras()['family'];
+        foreach ( $data as $recordId => $record ) {
+            $this->extra_names[] = $record['person']['name'];
+        }
     }
 
     public static function init() {
-        $importer = new self( __DIR__ . '/../data/data.json' );
-        DataIO::console_log("Constructing...");
-        add_action( 'after_submit_import_settings', [$importer, 'import_post'], 10, 1 );
+        $importer = new self( __DIR__ . '/../data/data.json', __DIR__ . '/../data/extra.json' );
+        add_action( 'after_submit_import_settings', [$importer, 'import_handler'], 10, 1 );
     }
 
     public function getJson() {
         return $this->json;
+    }
+
+    public function getExtras() {
+        return $this->extras;
+    }
+
+    public function import_handler( $index ) {
+        if (filter_var( $index, FILTER_VALIDATE_INT ) !== FALSE ) {
+            DataIO::console_log("Index is a digit");
+            if ( intval( $index ) == -1 ) {
+                DataIO::console_log("-1 detected, importing all posts...");
+                $this->import_posts();
+            }
+        } else {
+            DataIO::console_log("Importing post with index: " . $index );
+            $this->import_post( $index );
+        }
     }
 
     /**
@@ -34,24 +59,52 @@ class JsonImporter {
         // Puts the JSON in an associative array
         $data = $this->getJson()['family'];
 
-        foreach ( $data['person'] as $personKey => $person ) {
-            $this->import_post( $personKey );            
+        // foreach ( $data['person'] as $personKey => $person ) {
+        //     $this->import_post( $personKey );            
+        // }
+
+        for ( $i = 0; $i < 10; $i++ ) {
+            $this->import_post( $i );
         }
     }
 
     function import_post( $index ) {
+        DataIO::console_log("Request received for index " . $index );
         // Working with such a large file we need to increase the memory
         // capacity for the script.
         ini_set( "memory_limit", "16M" );
         // Puts the JSON in an associative array
         $data = $this->getJson()['family'];
+        $extras = $this->getExtras()['family'];
 
-        // Get person by index
-        $person = $data[$index]['person'];
+        // Get person by either name or index in the JSON
+        if ( filter_var( $index, FILTER_VALIDATE_INT ) !== FALSE ) {
+            $person = $data[$index]['person'];
+        } else {
+            foreach ( $data as $recordIndex => $record ) {
+                if ( $record['person']['name'] == $index ) {
+                    $person = $record['person'];
+                }
+            }
+        }
+
+        // checks if the person exists in the extra data file, returns the 
+        // index of the entry or false if not found
+        $extra_exists = array_search( $person['name'], $this->extra_names  );
 
         // Basic outline of all the fields needed for the post
         $meta_input = array(
             'post_title' => $person['name'],
+
+            'person_other_names' => "",
+
+            'person_other_surnames' => "",
+
+            'person_birth_group' => array(
+                'person_birth_date' => "",
+
+                'person_birth_place' => "",
+            ),
 
             'person_parent_group' => array(
                 array(
@@ -102,6 +155,8 @@ class JsonImporter {
             ),
 
             'person_notes' => "",
+
+            'person_original_html' => $person['original'],
         );
         $sections = $person['sections'];
         foreach ( $sections as $sectionKey => $section ) {
@@ -148,7 +203,7 @@ class JsonImporter {
                         if ( $child['title'] == "" ) {
                             continue;
                         } else if ( substr_count( $child['title'], ' ') >= 7 ) {
-                            $post['person_notes'] .= $child['title'] . "\n";
+                            $meta_input['person_notes'] .= $child['title'] . "\n";
                         } else {
                             // Getting rid of the placeholder array
                             if ( $meta_input['person_child_group'][0]['person_child_name'] == "" ) {
@@ -171,18 +226,25 @@ class JsonImporter {
                         if ( $partner['title'] == "" ) {
                             continue;
                         } else if ( substr_count( $partner['title'], ' ') >= 7 ) {
-                            $post['person_notes'] .= $partner['titles'] . "\n";
+                            $meta_input['person_notes'] .= $partner['titles'] . "\n";
                         } else {
                             // Getting rid of the placeholder array
                             if ( $meta_input['person_partner_group'][0]['person_partner_name'] == "" ) {
                                 array_pop( $meta_input['person_partner_group'] );
+                            }
+                            $start_date = "";
+                            if ( $extra_exists ) {
+                                // Gross, I know, not my fault
+                                if ( $extras[$extra_exists]['person']['sections'][0]['content'][0]['title'] == $partner['title'] ) {
+                                    $start_date = $extras[$extra_exists]['person']['sections'][0]['content'][0]['extra'];
+                                }
                             }
                             $meta_input['person_partner_group'][] = array(
                                 'person_partner_name' => empty( $partner['path'] ) ? $partner['title'] : $this->map_name( $partner['path'] ),
 
                                 'person_partner_type' => 'married',
 
-                                'person_partner_start_date' => "",
+                                'person_partner_start_date' => $start_date == "" ? "FUCK YOU" : $start_date,
 
                                 'person_partner_end_date' => "",
 
@@ -194,58 +256,59 @@ class JsonImporter {
                     } break;
                 case "History":
                 case "Details":
+                    /*
+                    Details have a very confusing architecture: they are 
+                    comprised of a title, detail array, and path, and within
+                    the detail array is a detail title and detail content,
+                    */
                     $content = $section['content'];
                     foreach ( $content as $detailKey => $detail ) {
                         // Grab title and path if they exist otherwise start adding details
                         if ( $detail['title'] != "" ) {
-                            $meta_input['notes'][] = $detail['title'];
+                            $meta_input['person_notes'] .= $detail['title'] . "\n";
                         } if ( $detail['path'] != "" ) {
-                            $meta_input['notes'][] = $detail['path'];
+                            $meta_input['person_notes'] .= $detail['path'] . "\n";
                         }
                         $details = $detail['details'];
+
+                        // The history section has a details array but it is 
+                        // empty, so this code will not run for it
                         foreach ( $details as $dKey => $d ) {
                             // birthdate/place, hebrew/married name are present
                             // for every record, but not always filled out
-                            if ( in_array( $d['detail'], array( "birth date", "birth place", "hebrew name", "married name" ) ) ) {
-                                if ( $d['detail'] != "" ) {
-                                    $meta_input['details'][$d['detail']] = $d['detail_content'];
-                                }
-                            } else {
-                                $meta_input['notes'][] = $d['detail_content'];
+                            switch( $d['detail'] ) {
+                                case "birth date":
+                                    $meta_input['person_birth_group']['person_birth_date'] = $d['detail_content'];
+                                    break;
+                                case "birth place":
+                                    $meta_input['person_birth_group']['person_birth_place'] = $d['detail_content'];
+                                    break;
+                                case "hebrew name":
+                                    $meta_input['person_other_names'] = $d['detail_content'];
+                                    break;
+                                case "married name":
+                                    $meta_input['person_other_surnames'] = $d['detail_content'];
+                                    break;
+                                case "deceased":
+                                    $meta_input['person_death_group']['person_death_date'] = $d['detail_content'];
+                                    break;
+                                default:
+                                    $meta_input['person_notes'] .= $d['detail_content'] . "\n";
                             }
                         }
                     }
                     break;
                 case "Contact":
-                    $emailExp = '/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i';
-                    $phoneExp = '/\b\D?(\d{3})\D?\D?(\d{3})\D?(\d{4})\b/';
                     $content = $section['content'];
                     foreach ( $content as $contactKey => $contact ) {
-                        if ( preg_match( $emailExp, $contact['title'], $emailMatches) ) {
-                            if ( empty( $meta_input['person_email'][0] ) ) {
-                                array_pop( $meta_input['person_email'] );
-                            } else {
-                                foreach ( $emailMatches as $emailMatchIndex => $emailMatch ) {
-                                    // First element of the $matches array is the whole string
-                                    if ( $emailMatchIndex != 0 ) {
-                                        $meta_input['person_email'][] = $emailMatch;
-                                    }
-                                }
-                            }
-                        } if ( preg_match( $phoneExp, $contact['title'], $phoneMatches ) ) {
-                            if ( empty( $meta_input['person_phone_number'][0] ) ) {
-                                array_pop( $meta_input['person_phone_number'] );
-                            } else {
-                                foreach ( $phoneMatches as $phoneMatchIndex => $phoneMatch ) {
-                                    if ( $phoneMatchIndex != 0 ) {
-                                        $meta_input['person_phone_number'][] = $phoneMatches;
-                                    }
-                                }
-                            }
-                        }
+                        $meta_input['person_notes'] .= $contact['title'] . "\n";
                     }
                     break;
                 case "Siblings":
+                    // Since we don't keep sibling relationships, any siblings without parents need to 
+                    if ( !empty( $meta_input['person_parent_group'][0]['person_parent_name'] ) ) {
+
+                    }
                     break;
                 default:
                     // make_post($sectionName);
@@ -275,6 +338,10 @@ class JsonImporter {
      * abbreviated name present in other records is not used.
      * 
      * @param String $path a path on the old website corresponding to a record.
+     * Just the unique part is needed (_____.___/_____/doe/johndoe for example)
+     * 
+     * @return String returns the path if nothing is found, otherwise the full
+     * name of the corresponding record.
      */
     function map_name( $path ) {
         $data = $this->json['family'];
@@ -289,7 +356,7 @@ class JsonImporter {
             }
         }
 
-        return "NOT FOUND";
+        return $path;
 
     }
 }
