@@ -52,7 +52,7 @@ class PartnerIO {
                so the only way to delete all partners is by removing all the 
                others and leaving the first one blank.
             */
-            if ( count( $partners ) == 1 && $partnene["person_partner_name"] == "" && $partnee["person_partner_type"] == "none"
+            if ( count( $partners ) == 1 && $partnee["person_partner_name"] == "" && $partnee["person_partner_type"] == "none"
                     && $partnee["person_partner_start_date"] == "" && $partnee["person_partner_end_date"] == "" ) {
                 // This query deletes all child relationships to the parent
                 // $query = sprintf( "PREFIX coop: <http://cooperman.org/terms/>;

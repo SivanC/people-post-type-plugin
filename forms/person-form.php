@@ -30,7 +30,7 @@ function person_register_meta_boxes( $meta_boxes ) {
 
         'title'      => esc_html__( 'Person Meta Box', 'online-generator' ),
 
-        'id'         => 'person_meta_box',
+        'id'         => $prefix . 'meta_box',
 
         'post_types' => ['person'],
 
@@ -65,6 +65,7 @@ function person_register_meta_boxes( $meta_boxes ) {
                 'std'  => $post_title,
 
                 'tab' => 'basic_info'
+                
             ],
 
 
@@ -138,11 +139,13 @@ function person_register_meta_boxes( $meta_boxes ) {
 
                 'type' => 'group',
 
-                'id' => $prefix . 'birth_place_group',
+                'id' => $prefix . 'birth_group',
 
                 'group_title' => "Birth Information",
 
                 'collapsible' => true,
+
+                'default_state' => 'collapsed',
 
                 'tab' => 'basic_info',
 
@@ -196,11 +199,13 @@ function person_register_meta_boxes( $meta_boxes ) {
 
                 'type' => 'group',
 
-                'id' => $prefix . 'death_place_group',
+                'id' => $prefix . 'death_group',
 
                 'group_title' => "Death Information",
 
                 'collapsible' => true,
+
+                'default_state' => 'collapsed',
 
                 'tab' => 'basic_info',
 
@@ -483,7 +488,7 @@ function person_register_meta_boxes( $meta_boxes ) {
         
                     [
         
-                        'type' => 'date',
+                        'type' => 'text',
         
                         'id' => $prefix . 'partner_end_date',
         
@@ -526,6 +531,8 @@ function person_register_meta_boxes( $meta_boxes ) {
                 'group_title' => "Location {#}",
 
                 'collapsible' => true,
+                
+                'default_state' => 'collapsed',
 
                 'clone' => true,
 
@@ -563,41 +570,21 @@ function person_register_meta_boxes( $meta_boxes ) {
 
                     [
         
-                        'type' => 'date',
+                        'type' => 'text',
         
                         'id' => $prefix . 'location_start_date',
         
                         'name' => "Location Start Date",
-        
-                        'js_options' => [
-        
-                            'dateFormat' => 'mm-dd-yy',
-        
-                            'changeYear' => true,
-                            // Allowed years for selection are 1800 to current year
-                            'yearRange' => '1800:'
-        
-                        ],
-                
+         
                     ],
         
                     [
         
-                        'type' => 'date',
+                        'type' => 'text',
         
                         'id' => $prefix . 'location_end_date',
         
                         'name' => "Location End Date",
-        
-                        'js_options' => [
-        
-                            'dateFormat' => 'mm-dd-yy',
-        
-                            'changeYear' => true,
-        
-                            'yearRange' => '1800:'
-        
-                        ],
                 
                     ],
 
@@ -647,7 +634,7 @@ function person_register_meta_boxes( $meta_boxes ) {
 
             [
 
-                'type' => 'email',
+                'type' => 'text',
 
                 'id'   => $prefix . 'email',
 

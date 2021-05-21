@@ -3,7 +3,7 @@
 /**
  * Plugin Name: People Post Type
  * Description: Adds the People post type and graph database connection.
- * Version: 0.11.0
+ * Version: 0.11.2
  * Author: Sivan Cooperman 
  */
 
@@ -21,6 +21,10 @@ include('classes/ChildIO.php');
 include('classes/ParentIO.php');
 include('classes/PartnerIO.php');
 
+// JSON Data import
+include('import/JsonImporter.php');
+include('import/import-form.php');
+
 // Child IO filters
 add_filter( 'rwmb_person_child_group_value', [ 'ChildIO', 'write_child_data' ] );
 add_filter( 'rwmb_person_child_group_field_meta', [ 'ChildIO', 'read_child_data' ] );
@@ -35,6 +39,10 @@ add_filter( 'rwmb_person_partner_group_field_meta', [ 'PartnerIO', 'read_partner
 
 // On delete
 add_action( 'before_delete_post', [ 'DataIO', 'delete_data' ], 10, 1 );
+
+// On load for importing
+add_action( 'plugins_loaded', ['JsonImporter', 'init'] );
+
 
 /**
  * Creates a 'person'-type post with a given title. Useful for debugging when

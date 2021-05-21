@@ -3,6 +3,8 @@
 /**
  * This class contains methods used by ParentIO, ChildIO, and PartnerIO to read
  * and write data to/from the GraphDB database.
+ * 
+ * @author Sivan Cooperman
  */
 class DataIO {
     /**
@@ -86,8 +88,6 @@ class DataIO {
     }
 
     public static function get_settings() {
-        global $wpdb;
-
         $settings = array(
             'person_settings_post_uri' => rwmb_meta( 'person_settings_post_uri', ['object_type' => 'setting'], 'person_settings' ),
             'person_settings_get_uri' => rwmb_meta( 'person_settings_get_uri', ['object_type' => 'setting'], 'person_settings' ),
@@ -95,6 +95,10 @@ class DataIO {
         );
 
         return $settings;
+    }
+
+    public static function console_log( $string ) {
+        echo("<script>console.log(\"{$string}\");</script>");
     }
 }
 
